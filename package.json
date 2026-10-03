@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/server.test.js test/provider.test.js",
+    "test": "node --test test/server.test.js test/provider.test.js test/provider-config.test.js",
     "evaluate": "node scripts/evaluate.js",
     "doctor": "node scripts/doctor.js"
   }

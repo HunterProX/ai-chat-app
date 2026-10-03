@@ -28,6 +28,8 @@ the technologies mentioned in historical marketing drafts.
 
 - Production RAG or embeddings.
 - OpenAI, Anthropic, or other provider calls; unsupported providers fail closed.
+- Provider configuration defaults to deterministic mode and rejects external
+  providers before any network call is possible.
 - Streaming.
 - Authentication, rate limiting, abuse protection, or public deployment.
 - Client or employer data.
