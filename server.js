@@ -11,11 +11,16 @@ function json(res, status, body) {
   res.end(payload);
 }
 
-function answerFor(message) {
+function answerFor(message, mode = 'representative') {
   const normalized = message.toLowerCase();
+  if (/ignore .*instruction|system prompt|private os|filesystem|secret|api key/.test(normalized)) {
+    return { answer: 'Insufficient evidence in the approved public knowledge set to answer that reliably.', citations: [], evidence_status: 'insufficient_evidence', error_code: 'insufficient_evidence' };
+  }
   const match = [...knowledge.answers].sort((a, b) => Math.max(...b.keywords.map((keyword) => keyword.length)) - Math.max(...a.keywords.map((keyword) => keyword.length))).find((entry) => entry.keywords.some((keyword) => normalized.includes(keyword)));
-  if (!match) return { answer: 'Insufficient evidence in the approved public knowledge set to answer that reliably.', citations: [], evidence_status: 'insufficient_evidence' };
-  return { answer: match.answer, citations: match.citations, evidence_status: match.evidence_status };
+  if (!match) return { answer: 'Insufficient evidence in the approved public knowledge set to answer that reliably.', citations: [], evidence_status: 'insufficient_evidence', error_code: 'insufficient_evidence' };
+  const result = { answer: match.answer, citations: match.citations, evidence_status: match.evidence_status };
+  if (mode === 'analyst') result.analysis = { scope: 'approved public knowledge fixture', unknowns: match.evidence_status === 'insufficient_evidence' ? ['No supporting public evidence'] : [] };
+  return result;
 }
 
 function createServer() {
@@ -29,8 +34,10 @@ function createServer() {
         const body = JSON.parse(raw || '{}');
         if (typeof body.message !== 'string' || body.message.trim().length === 0) return json(res, 400, { error: 'message must be a non-empty string' });
         if (body.message.length > MAX_MESSAGE_LENGTH) return json(res, 413, { error: `message exceeds ${MAX_MESSAGE_LENGTH} characters` });
-        if (body.history !== undefined) return json(res, 400, { error: 'persistent conversation history is not supported' });
-        return json(res, 200, { mode: 'representative', provider: 'deterministic', ...answerFor(body.message) });
+        if (body.history !== undefined) return json(res, 400, { error: 'persistent conversation history is not supported', error_code: 'invalid_request' });
+        const mode = body.mode || 'representative';
+        if (!['representative', 'analyst'].includes(mode)) return json(res, 400, { error: 'mode must be representative or analyst', error_code: 'invalid_request' });
+        return json(res, 200, { mode, provider: 'deterministic', ...answerFor(body.message, mode) });
       } catch { return json(res, 400, { error: 'request body must be valid JSON' }); }
     });
   });
