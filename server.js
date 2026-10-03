@@ -1,6 +1,7 @@
 const http = require('node:http');
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
+const { createProvider } = require('./provider');
 
 const MAX_MESSAGE_LENGTH = 1000;
 const knowledge = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/knowledge.json'), 'utf8'));
@@ -23,9 +24,9 @@ function answerFor(message, mode = 'representative') {
   return result;
 }
 
-function createServer() {
+function createServer(provider = createProvider({ answer: answerFor })) {
   return http.createServer((req, res) => {
-    if (req.method === 'GET' && req.url === '/health') return json(res, 200, { status: 'ok', provider: 'deterministic', persistent_history: false });
+    if (req.method === 'GET' && req.url === '/health') return json(res, 200, { status: 'ok', provider: provider.name, persistent_history: false });
     if (req.method !== 'POST' || req.url !== '/api/chat') return json(res, 404, { error: 'Not found' });
     let raw = '';
     req.on('data', (chunk) => { raw += chunk; if (raw.length > 10000) req.destroy(); });
@@ -37,7 +38,7 @@ function createServer() {
         if (body.history !== undefined) return json(res, 400, { error: 'persistent conversation history is not supported', error_code: 'invalid_request' });
         const mode = body.mode || 'representative';
         if (!['representative', 'analyst'].includes(mode)) return json(res, 400, { error: 'mode must be representative or analyst', error_code: 'invalid_request' });
-        return json(res, 200, { mode, provider: 'deterministic', ...answerFor(body.message, mode) });
+        return Promise.resolve(provider.answer({ message: body.message, mode })).then((result) => json(res, 200, { mode, provider: provider.name, ...result })).catch(() => json(res, 503, { error: 'provider unavailable', error_code: 'provider_unavailable' }));
       } catch { return json(res, 400, { error: 'request body must be valid JSON' }); }
     });
   });
