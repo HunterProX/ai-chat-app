@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "answers": [
+    { "keywords": ["foundation", "full stack", "cloud"], "answer": "The approved public profile positions Cristian Cardona on a Full Stack + Cloud foundation, with a transition toward AI Engineering, AI Automation, and Agentic Systems.", "citations": ["knowledge-profile-positioning"], "evidence_status": "developing" },
+    { "keywords": ["cloud dashboard", "dashboard"], "answer": "Cloud Dashboard is a public reproduction using deterministic synthetic telemetry. It demonstrates a cloud-oriented dashboard implementation, but not live cloud operations or client infrastructure.", "citations": ["knowledge-cloud-dashboard-reproduction"], "evidence_status": "developing" },
+    { "keywords": ["rag", "retrieval"], "answer": "Production retrieval-augmented generation is not demonstrated in the approved public evidence.", "citations": ["knowledge-no-production-rag"], "evidence_status": "insufficient_evidence" }
+  ]
+}

@@ -1,54 +1,44 @@
-# AI Chat App
+# AI Engineering Reliability Lab
 
-**React + OpenAI API + RAG + Streaming**
+An intentionally small, public-safe prototype for evaluating grounded AI API
+boundaries before adding a real model provider.
 
-## 🚀 Demo
-[Live Demo](https://ai-chat-app.vercel.app)
+## Classification
 
-## 📸 Screenshots
-![Chat Interface](./screenshots/chat.png)
+This is a **new public project / public reproduction**. It is not client code,
+employer infrastructure, production RAG, or evidence that a private system used
+the technologies mentioned in historical marketing drafts.
 
-## 🛠 Tech Stack
+## What is implemented
 
-- **Frontend:** React, TypeScript, Tailwind CSS
-- **Backend:** Node.js, Express
-- **AI:** OpenAI API, LangChain, Pinecone (Vector DB)
-- **Deploy:** Vercel
+- Deterministic representative mode using an allowlisted knowledge fixture.
+- Bounded request size (`1000` characters maximum).
+- Explicit `insufficient_evidence` responses.
+- Citation IDs constrained to approved fixture records.
+- No persistent conversation history, tools, agents, vector database, retrieval
+  pipeline, or external network call.
+- Health endpoint exposing provider mode and persistence boundary.
+- Node built-in tests for supported answers, unknown questions, input limits, and
+  response contract.
 
-## ✨ Features
+## What is not implemented
 
-- Chat interface con respuestas en tiempo real (streaming)
-- RAG system para documentos personalizados
-- Historial de conversaciones
-- Multi-idioma
-- Dark mode
+- Production RAG or embeddings.
+- OpenAI, Anthropic, or other provider calls.
+- Streaming.
+- Authentication, rate limiting, abuse protection, or public deployment.
+- Client or employer data.
+- Quality, latency, cost, or production-reliability claims.
 
-## 📦 Installation
+## Run locally
+
+Requirements: Node.js 20+.
 
 ```bash
-# Clone repository
-git clone https://github.com/tuuser/ai-chat-app.git
-
-# Install dependencies
-cd ai-chat-app
-npm install
-
-# Set environment variables
-cp .env.example .env
-# Add your OPENAI_API_KEY and PINECONE_API_KEY
-
-# Run development server
-npm run dev
+npm test
+npm start
 ```
 
-## 🔧 Environment Variables
-
-```env
-OPENAI_API_KEY=your_openai_api_key
-PINECONE_API_KEY=your_pinecone_api_key
-PINECONE_ENVIRONMENT=your_pinecone_environment
-```
-
-## 📄 License
-
-MIT
+Then call `http://localhost:3001/api/chat` with a JSON body containing `message`.
+The next evolution should add an evaluated provider adapter only after the
+deterministic contract, privacy boundary, and failure tests are reviewed.

@@ -1,96 +1,44 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const OpenAI = require('openai');
+const http = require('node:http');
+const { readFileSync } = require('node:fs');
+const { resolve } = require('node:path');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const MAX_MESSAGE_LENGTH = 1000;
+const knowledge = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/knowledge.json'), 'utf8'));
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function json(res, status, body) {
+  const payload = JSON.stringify(body);
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(payload);
+}
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+function answerFor(message) {
+  const normalized = message.toLowerCase();
+  const match = [...knowledge.answers].sort((a, b) => Math.max(...b.keywords.map((keyword) => keyword.length)) - Math.max(...a.keywords.map((keyword) => keyword.length))).find((entry) => entry.keywords.some((keyword) => normalized.includes(keyword)));
+  if (!match) return { answer: 'Insufficient evidence in the approved public knowledge set to answer that reliably.', citations: [], evidence_status: 'insufficient_evidence' };
+  return { answer: match.answer, citations: match.citations, evidence_status: match.evidence_status };
+}
 
-// Chat endpoint
-app.post('/api/chat', async (req, res) => {
-  try {
-    const { message, history = [] } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-
-    const messages = [
-      {
-        role: 'system',
-        content: 'You are a helpful AI assistant. You are knowledgeable about cloud architecture, full stack development, and AI integration.',
-      },
-      ...history,
-      { role: 'user', content: message },
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      max_tokens: 1000,
-      temperature: 0.7,
+function createServer() {
+  return http.createServer((req, res) => {
+    if (req.method === 'GET' && req.url === '/health') return json(res, 200, { status: 'ok', provider: 'deterministic', persistent_history: false });
+    if (req.method !== 'POST' || req.url !== '/api/chat') return json(res, 404, { error: 'Not found' });
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; if (raw.length > 10000) req.destroy(); });
+    req.on('end', () => {
+      try {
+        const body = JSON.parse(raw || '{}');
+        if (typeof body.message !== 'string' || body.message.trim().length === 0) return json(res, 400, { error: 'message must be a non-empty string' });
+        if (body.message.length > MAX_MESSAGE_LENGTH) return json(res, 413, { error: `message exceeds ${MAX_MESSAGE_LENGTH} characters` });
+        if (body.history !== undefined) return json(res, 400, { error: 'persistent conversation history is not supported' });
+        return json(res, 200, { mode: 'representative', provider: 'deterministic', ...answerFor(body.message) });
+      } catch { return json(res, 400, { error: 'request body must be valid JSON' }); }
     });
+  });
+}
 
-    res.json({
-      response: completion.choices[0].message.content,
-      usage: completion.usage,
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+if (require.main === module) {
+  const port = Number(process.env.PORT || 3001);
+  createServer().listen(port, () => console.log(`AI reliability lab listening on port ${port}`));
+}
 
-// RAG endpoint (placeholder)
-app.post('/api/rag', async (req, res) => {
-  try {
-    const { query, documents = [] } = req.body;
-
-    if (!query) {
-      return res.status(400).json({ error: 'Query is required' });
-    }
-
-    // In a real implementation, you would:
-    // 1. Generate embeddings for the query
-    // 2. Search vector database for similar documents
-    // 3. Use retrieved documents as context for LLM
-
-    const messages = [
-      {
-        role: 'system',
-        content: `You are a helpful assistant. Use the following documents to answer the question:\n\n${documents.join('\n\n')}`,
-      },
-      { role: 'user', content: query },
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      max_tokens: 1000,
-      temperature: 0.7,
-    });
-
-    res.json({
-      response: completion.choices[0].message.content,
-      sources: documents.length,
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`AI Chat App server running on port ${PORT}`);
-});
+module.exports = { MAX_MESSAGE_LENGTH, answerFor, createServer };
